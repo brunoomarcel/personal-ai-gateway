@@ -20,7 +20,7 @@ export function buildApp(provider: InferenceProvider = new MockOAuthProvider(), 
   app.get('/health',async()=>({status:'ok',provider:provider.name,uptime_seconds:Math.round(process.uptime())}));
   if (oauthSession) {
     app.get('/auth/chatgpt/start', async (_req, reply) => reply.redirect(oauthSession.start()));
-    app.get('/auth/chatgpt/callback', async (req:any, reply) => { try { await oauthSession.callback(req.query); return reply.type('text/html; charset=utf-8').send('<h1>ChatGPT conectado</h1><p>Você pode fechar esta janela e voltar ao dashboard.</p>'); } catch (e:any) { return reply.code(400).type('text/html; charset=utf-8').send(`<h1>Falha no OAuth</h1><p>${String(e.message).replace(/[<>]/g,'')}</p>`); } });
+    app.get('/auth/chatgpt/callback', async (req:any, reply) => { try { await oauthSession.callback(req.query); return reply.redirect(process.env.DASHBOARD_URL ?? 'http://127.0.0.1:5173'); } catch (e:any) { return reply.code(400).type('text/html; charset=utf-8').send(`<h1>Falha no OAuth</h1><p>${String(e.message).replace(/[<>]/g,'')}</p>`); } });
     app.get('/auth/chatgpt/status', async () => oauthSession.status());
     app.post('/auth/chatgpt/disconnect', async () => { oauthSession.disconnect(); return {ok:true}; });
   }
