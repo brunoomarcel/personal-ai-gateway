@@ -10,8 +10,6 @@ services:
       PROVIDER: ${PROVIDER:-authorized}
       OAUTH_STORAGE_KEY: ${OAUTH_STORAGE_KEY:?OAUTH_STORAGE_KEY must be set in Portainer}
       DASHBOARD_URL: ${DASHBOARD_URL:?DASHBOARD_URL must be set in Portainer}
-    expose:
-      - "3333"
     volumes:
       - gateway_data:/app/data
     networks:
@@ -22,12 +20,12 @@ services:
         condition: on-failure
       labels:
         - traefik.enable=true
-        - traefik.docker.network=${TRAEFIK_NETWORK:-traefik-public}
-        - traefik.swarm.network=${TRAEFIK_NETWORK:-traefik-public}
+        - traefik.docker.network=${TRAEFIK_NETWORK:-vpsnet}
+        - traefik.swarm.network=${TRAEFIK_NETWORK:-vpsnet}
         - traefik.http.routers.personal-ai-gateway.rule=Host(`${DOMAIN:-personal-ai-gateway.medainer.com.br}`)
         - traefik.http.routers.personal-ai-gateway.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
         - traefik.http.routers.personal-ai-gateway.tls=true
-        - traefik.http.routers.personal-ai-gateway.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+        - traefik.http.routers.personal-ai-gateway.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencryptresolver}
         - traefik.http.services.personal-ai-gateway.loadbalancer.server.port=3333
 
 volumes:
@@ -36,4 +34,4 @@ volumes:
 networks:
   gateway_network:
     external: true
-    name: ${TRAEFIK_NETWORK:-traefik-public}
+    name: ${TRAEFIK_NETWORK:-vpsnet}

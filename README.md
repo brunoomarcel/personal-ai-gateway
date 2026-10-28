@@ -121,9 +121,9 @@ OAUTH_STORAGE_KEY=um-segredo-longo-e-aleatorio
 PROVIDER=authorized
 DASHBOARD_URL=https://personal-ai-gateway.medainer.com.br
 DOMAIN=personal-ai-gateway.medainer.com.br
-TRAEFIK_NETWORK=traefik-public
+TRAEFIK_NETWORK=vpsnet
 TRAEFIK_ENTRYPOINT=websecure
-TRAEFIK_CERTRESOLVER=letsencrypt
+TRAEFIK_CERTRESOLVER=letsencryptresolver
 HOST=0.0.0.0
 PORT=3333
 DATABASE_PATH=/app/data/gateway.db
@@ -140,9 +140,9 @@ O Stack usa as labels do Traefik para fazer o roteamento:
 personal-ai-gateway.medainer.com.br → Traefik → personal-ai-gateway:3333
 ```
 
-Antes do deploy, a rede Docker externa usada pelo Traefik deve existir e o nome deve ser informado em `TRAEFIK_NETWORK` (o padrão no arquivo é `traefik-public`). O nome do entrypoint e do resolver também precisa corresponder à configuração do seu Traefik. O Traefik solicita e renova o certificado HTTPS. Abra somente as portas `80` e `443` no firewall da VPS.
+Antes do deploy, a rede Docker externa usada pelo Traefik deve existir e o nome deve ser informado em `TRAEFIK_NETWORK` (o padrão neste ambiente é `vpsnet`). O nome do entrypoint e do resolver também precisa corresponder à configuração do seu Traefik. Neste ambiente, o resolver é `letsencryptresolver`. O Traefik solicita e renova o certificado HTTPS. Abra somente as portas `80` e `443` no firewall da VPS.
 
-No Portainer, confirme em **Networks** o nome exato da rede do Traefik. Se ela não for `traefik-public`, altere `TRAEFIK_NETWORK` nas variáveis do Stack. O serviço do gateway e o Traefik precisam estar conectados à mesma rede overlay.
+No Portainer, confirme em **Networks** o nome exato da rede do Traefik. Se ela não for `vpsnet`, altere `TRAEFIK_NETWORK` nas variáveis do Stack. O serviço do gateway e o Traefik precisam estar conectados à mesma rede externa.
 
 Depois do deploy, a URL do dashboard será `https://personal-ai-gateway.medainer.com.br` e a Base URL para o n8n será `https://personal-ai-gateway.medainer.com.br/v1`.
 
