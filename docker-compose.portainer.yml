@@ -14,6 +14,16 @@ services:
       - gateway_data:/app/data
     networks:
       - gateway_network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK:-vpsnet}
+      - traefik.swarm.network=${TRAEFIK_NETWORK:-vpsnet}
+      - traefik.http.routers.personal-ai-gateway.rule=Host(`${DOMAIN:-personal-ai-gateway.medainer.com.br}`)
+      - traefik.http.routers.personal-ai-gateway.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.personal-ai-gateway.tls=true
+      - traefik.http.routers.personal-ai-gateway.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencryptresolver}
+      - traefik.http.routers.personal-ai-gateway.service=personal-ai-gateway
+      - traefik.http.services.personal-ai-gateway.loadbalancer.server.port=3333
     deploy:
       replicas: 1
       restart_policy:
@@ -26,6 +36,7 @@ services:
         - traefik.http.routers.personal-ai-gateway.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
         - traefik.http.routers.personal-ai-gateway.tls=true
         - traefik.http.routers.personal-ai-gateway.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencryptresolver}
+        - traefik.http.routers.personal-ai-gateway.service=personal-ai-gateway
         - traefik.http.services.personal-ai-gateway.loadbalancer.server.port=3333
 
 volumes:
