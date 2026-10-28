@@ -2,7 +2,10 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { z } from 'zod';
 import { openDb, findKey, record } from './db.js';
 import { bearer, makeApiKey } from './security.js';
@@ -15,6 +18,7 @@ const input = z.object({model:z.string().min(1).max(100),messages:z.array(messag
 const responseInput = z.object({model:z.string().min(1),input:z.union([z.string(),z.array(message)]),stream:z.boolean().optional(),instructions:z.string().optional()});
 export function buildApp(provider: InferenceProvider = new MockOAuthProvider(), db = openDb(':memory:'), oauthSession?: ChatGPTOAuthSession) {
   const app=Fastify({logger:true,bodyLimit:256*1024}); app.register(cors,{origin:true}); app.register(rateLimit,{max:60,timeWindow:'1 minute'});
+  const webRoot=process.env.WEB_DIST_PATH ?? join(process.cwd(),'web','dist'); if(existsSync(webRoot)) app.register(fastifyStatic,{root:webRoot});
   const admin = async (req:any, reply:any) => { const token=bearer(req.headers.authorization); if(!token || token !== (process.env.ADMIN_TOKEN ?? 'change-me-in-development')) return reply.code(401).send({error:{message:'Admin authentication required',type:'authentication_error'}}); };
   const auth = async (req:any, reply:any) => { const token=bearer(req.headers.authorization); const key=token && findKey(db,token); if(!key) return reply.code(401).send({error:{message:'Valid pai_ API key required',type:'authentication_error'}}); if(key.expires_at && Date.parse(key.expires_at)<Date.now()) return reply.code(401).send({error:{message:'API key expired',type:'authentication_error'}}); if(key.request_limit !== null && key.request_count >= key.request_limit) return reply.code(429).send({error:{message:'API key request limit exceeded',type:'rate_limit_error'}}); req.gatewayKey=key; };
   app.get('/health',async()=>({status:'ok',provider:provider.name,uptime_seconds:Math.round(process.uptime())}));
@@ -34,4 +38,4 @@ export function buildApp(provider: InferenceProvider = new MockOAuthProvider(), 
   app.post('/v1/responses',{preHandler:auth},async(req:any,reply)=>{const parsed=responseInput.safeParse(req.body); if(!parsed.success)return reply.code(400).send({error:{message:'Invalid responses payload',type:'invalid_request_error'}}); const messages=typeof parsed.data.input==='string'?[{role:'user' as const,content:parsed.data.input}]:parsed.data.input; const result=await run(req,reply,{model:parsed.data.model,messages,instructions:parsed.data.instructions,stream:false}); if(!result || result.error)return result; return {id:`resp_${randomUUID()}`,object:'response',model:result.model,output:[{type:'message',role:'assistant',content:[{type:'output_text',text:result.choices[0].message.content}]}],usage:result.usage};});
   return app;
 }
-if (process.env.NODE_ENV !== 'test') { const session=new ChatGPTOAuthSession(); const provider=process.env.PROVIDER==='authorized'?new AuthorizedOAuthProvider(session):new MockOAuthProvider(); const app=buildApp(provider,undefined,session); app.listen({port:Number(process.env.PORT??3333),host:process.env.HOST??'127.0.0.1'}).catch(e=>{app.log.error(e);process.exit(1);}); }
+if (process.env.NODE_ENV !== 'test') { const session=new ChatGPTOAuthSession(); const provider=process.env.PROVIDER==='authorized'?new AuthorizedOAuthProvider(session):new MockOAuthProvider(); const app=buildApp(provider,openDb(),session); app.listen({port:Number(process.env.PORT??3333),host:process.env.HOST??'127.0.0.1'}).catch(e=>{app.log.error(e);process.exit(1);}); }

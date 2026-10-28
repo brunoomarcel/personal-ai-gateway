@@ -1,66 +1,333 @@
 # Personal OAuth AI Gateway
 
-Prova de conceito local para estudar uma API compatível com formatos OpenAI, API Keys próprias e adaptadores de inferência. O repositório original estava vazio; não havia SDK OAuth existente para reutilizar.
+Gateway local compatível com a API da OpenAI. Ele permite conectar uma conta autorizada por OAuth, criar API keys próprias (`pai_...`) e expor endpoints compatíveis com clientes OpenAI, automações, n8n e scripts locais.
 
-## Executar
+> Projeto pessoal/local. Não o exponha publicamente sem autenticação, TLS, controle de acesso e uma revisão de segurança adequada.
+
+## O que este projeto faz
+
+- executa uma API HTTP local em `127.0.0.1:3333`;
+- oferece um dashboard React/Vite em `127.0.0.1:5173`;
+- autentica clientes com API keys próprias no formato `pai_...`;
+- armazena somente o hash SHA-256 das API keys no SQLite;
+- conecta uma conta ChatGPT/OpenAI por OAuth autorizado;
+- oferece `/v1/chat/completions`, `/v1/responses` e `/v1/models`;
+- registra contagem, status e latência das requisições;
+- permite criar várias API keys, selecioná-las e revogá-las.
+
+## Requisitos
+
+- Node.js 20 ou superior;
+- npm;
+- conta elegível para OAuth, quando `PROVIDER=authorized` for usado.
+
+## Instalação
 
 ```bash
 npm install
+```
+
+No PowerShell:
+
+```powershell
 Copy-Item .env.example .env
+```
+
+Edite o `.env` antes de iniciar o projeto.
+
+## Configuração
+
+Exemplo para OAuth real:
+
+```env
+PORT=3333
+HOST=127.0.0.1
+DATABASE_PATH=./data/gateway.db
+ADMIN_TOKEN=troque-por-um-token-administrativo-forte
+PROVIDER=authorized
+OAUTH_STORAGE_KEY=troque-por-um-segredo-longo-e-aleatorio
+DASHBOARD_URL=http://127.0.0.1:5173
+```
+
+| Variável | Função | Padrão |
+|---|---|---|
+| `PORT` | Porta da API | `3333` |
+| `HOST` | Endereço de bind | `127.0.0.1` |
+| `DATABASE_PATH` | Banco SQLite e auditoria | `./data/gateway.db` |
+| `ADMIN_TOKEN` | Protege rotas administrativas | `change-me-in-development` |
+| `PROVIDER` | `mock` ou `authorized` | `mock` |
+| `OAUTH_STORAGE_KEY` | Criptografa a sessão OAuth | — |
+| `DASHBOARD_URL` | URL do redirecionamento OAuth | `http://127.0.0.1:5173` |
+
+Não use valores de desenvolvimento em ambiente exposto.
+
+## Executar com Docker
+
+O container reúne a API e o dashboard na porta `3333` e mantém o SQLite no diretório `data/` do projeto.
+
+1. Crie e configure o `.env`:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Ajuste pelo menos `ADMIN_TOKEN`, `PROVIDER` e `OAUTH_STORAGE_KEY`.
+3. Suba o serviço:
+
+```powershell
+docker compose up -d --build
+```
+
+4. Abra <http://127.0.0.1:3333>.
+
+### URLs conforme o cenário
+
+| Cenário | URL do dashboard | Base URL da API |
+|---|---|---|
+| Sem Docker, acesso local | `http://127.0.0.1:5173` | `http://127.0.0.1:3333/v1` |
+| Docker, acesso local | `http://127.0.0.1:3333` | `http://127.0.0.1:3333/v1` |
+| n8n no mesmo host | — | `http://127.0.0.1:3333/v1` |
+| n8n em outro container da mesma rede Compose | — | `http://personal-ai-gateway:3333/v1` |
+| n8n remoto | — | `https://SEU-TUNEL.trycloudflare.com/v1` |
+
+No cenário remoto, o dashboard continua sendo acessado localmente em `http://127.0.0.1:3333`; somente a API é exposta pelo túnel.
+
+Comandos úteis:
+
+```powershell
+docker compose logs -f
+docker compose ps
+docker compose down
+```
+
+O volume `./data:/app/data` preserva o banco e a sessão OAuth entre recriações do container. O container simplifica a execução local, mas não torna a API acessível a um n8n remoto.
+
+Na configuração padrão, o túnel roda **fora** do container, na máquina host, e encaminha para a porta publicada `3333`:
+
+```text
+n8n remoto → URL HTTPS do túnel → cloudflared no host → localhost:3333 → container
+```
+
+Para criar esse túnel:
+
+```powershell
+cloudflared tunnel --protocol http2 --url http://127.0.0.1:3333
+```
+
+Também é possível executar o `cloudflared` como um serviço separado no Docker Compose, apontando para `http://personal-ai-gateway:3333`. Isso exige configurar o túnel como serviço independente; não é incluído no quick tunnel padrão porque a URL temporária muda e não oferece uma configuração adequada para produção.
+
+## Executar
+
+Modo desenvolvimento, com API e dashboard:
+
+```bash
 npm run dev
 ```
 
-O gateway escuta em `127.0.0.1:3333`. A UI Vite fica em `http://localhost:5173`.
+URLs locais:
 
-## Conectar sua conta ChatGPT por OAuth
+- Dashboard: <http://127.0.0.1:5173>
+- API: <http://127.0.0.1:3333>
+- Health check: <http://127.0.0.1:3333/health>
 
-O fluxo real usa o caminho oficial **Sign in with ChatGPT** para apps open-source. No `.env`, defina:
+Versão compilada:
 
-```env
-PROVIDER=authorized
-OAUTH_STORAGE_KEY=uma-chave-local-longa-e-secreta
+```bash
+npm run build
+npm start
 ```
 
-Reinicie `npm run dev` e abra `http://127.0.0.1:3333/auth/chatgpt/start`. O navegador pedirá login e consentimento. O callback local valida `state`, PKCE, nonce, assinatura do ID token e o escopo `chatgpt.tokens.use.direct`; os tokens são armazenados criptografados em `data/oauth-session.enc`. Depois, `/v1/models` e `/v1/responses` usam o access token OAuth na API pública `https://api.openai.com/v1`.
+## Conectar a conta OpenAI por OAuth
 
-Esse consentimento não libera conversas do ChatGPT nem sua API key; ele autoriza somente inferência elegível da Responses API para a conta/plano, conforme disponibilidade da OpenAI. A primeira autorização pode exigir elegibilidade/rollout do recurso.
+1. Defina `PROVIDER=authorized`.
+2. Defina uma `OAUTH_STORAGE_KEY` forte.
+3. Execute `npm run dev`.
+4. Abra <http://127.0.0.1:5173>.
+5. Clique em **Conectar à OpenAI**.
+6. Conclua o consentimento.
 
-Crie uma chave administrativa e de cliente:
+O callback redireciona para `DASHBOARD_URL`. A sessão é gravada criptografada em `data/oauth-session.enc`.
+
+O logout remove a sessão local e bloqueia o dashboard até uma nova conexão. O OAuth não fornece uma API key da OpenAI nem acesso a conversas do ChatGPT; ele autoriza somente a inferência disponível para a conta/plano.
+
+## Criar API keys
+
+No dashboard autenticado:
+
+1. informe um nome em **Key name**;
+2. informe o `ADMIN_TOKEN`;
+3. clique em **Create new API key**;
+4. guarde a chave exibida.
+
+É possível criar várias chaves. Cada uma aparece em **Saved keys** e pode ser selecionada, copiada ou revogada. A chave completa só é exibida no momento da criação; o banco armazena apenas seu hash.
+
+Também é possível criar uma chave pela API:
 
 ```powershell
-$h=@{Authorization='Bearer change-me-in-development';'Content-Type'='application/json'}
-Invoke-RestMethod http://localhost:3333/admin/keys -Method Post -Headers $h -Body '{"name":"local-dev"}'
+$headers = @{
+  Authorization = 'Bearer troque-o-admin-token'
+  'Content-Type' = 'application/json'
+}
+
+Invoke-RestMethod `
+  http://127.0.0.1:3333/admin/keys `
+  -Method Post `
+  -Headers $headers `
+  -Body '{"name":"n8n-production"}'
 ```
 
-Use o valor `key` retornado uma única vez:
+Guarde o campo `key` retornado. Ele não será mostrado novamente pelo servidor.
+
+## Usar a API
+
+As rotas `/v1/*` exigem:
+
+```http
+Authorization: Bearer pai_sua_chave
+```
+
+### Listar modelos
 
 ```powershell
-$h=@{Authorization='Bearer pai_COLE_A_CHAVE';'Content-Type'='application/json'}
-Invoke-RestMethod http://localhost:3333/v1/chat/completions -Method Post -Headers $h -Body '{"model":"mock-gpt-4o-mini","messages":[{"role":"user","content":"Olá"}]}'
+curl.exe http://127.0.0.1:3333/v1/models `
+  -H "Authorization: Bearer pai_sua_chave"
 ```
 
-## Arquitetura e limites
+### Chat Completions
 
-```mermaid
-flowchart LR
- C[Cliente / n8n / Python] -->|pai_ Bearer| G[Fastify Gateway]
- G --> K[(SQLite: hashes, auditoria)]
- G --> A[InferenceProvider]
- A --> M[MockOAuthProvider]
- A -. somente SDK oficial injetado .-> O[AuthorizedOAuthProvider]
- D[Dashboard admin] -->|ADMIN_TOKEN separado| G
+```powershell
+$headers = @{
+  Authorization = 'Bearer pai_sua_chave'
+  'Content-Type' = 'application/json'
+}
+
+$body = @{
+  model = 'gpt-5-mini'
+  messages = @(
+    @{ role = 'user'; content = 'Explique esta arquitetura em uma frase.' }
+  )
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod `
+  http://127.0.0.1:3333/v1/chat/completions `
+  -Method Post `
+  -Headers $headers `
+  -Body $body
 ```
 
-O mock foi verificado localmente. A integração OAuth real permanece conceitual: não havia SDK nem sessão no projeto, e o adaptador autorizado recusa execução sem uma implementação oficial injetada. Não há scraping, cookies, endpoints internos ou encaminhamento de tokens.
+O endpoint suporta `stream: true` para respostas SSE.
+
+### Responses API
+
+```powershell
+$body = @{
+  model = 'gpt-5-mini'
+  input = 'Explique esta arquitetura em uma frase.'
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  http://127.0.0.1:3333/v1/responses `
+  -Method Post `
+  -Headers $headers `
+  -Body $body
+```
+
+O gateway aceita `input` textual e mensagens com conteúdo textual. Para integrações com incompatibilidade no Responses API, use `/v1/chat/completions`.
+
+## Usar com n8n remoto
+
+Um n8n remoto não consegue acessar `127.0.0.1` do seu computador. Exponha somente a API por um túnel.
+
+Com Cloudflare Tunnel:
+
+```powershell
+cloudflared tunnel --protocol http2 --url http://127.0.0.1:3333
+```
+
+O comando exibirá uma URL como:
+
+```text
+https://exemplo.trycloudflare.com
+```
+
+Na credencial **OpenAI** do n8n:
+
+- **API Key:** sua chave `pai_...`;
+- **Organization ID:** deixe vazio;
+- **Base URL:** `https://exemplo.trycloudflare.com/v1`;
+- **Allowed HTTP Request Domains:** permita o domínio do túnel.
+
+No nó **OpenAI Chat Model**:
+
+1. selecione a credencial;
+2. escolha um modelo disponível em `/v1/models`;
+3. conecte o nó à entrada **Chat Model** do **AI Agent**;
+4. se houver erro no Responses API, desligue **Use Responses API** para usar `/v1/chat/completions`.
+
+O quick tunnel é temporário: a URL muda quando o processo é encerrado. Para uso contínuo, prefira túnel nomeado, domínio próprio e autenticação adicional.
+
+### Exemplo de fluxo n8n
+
+```text
+Webhook → Edit Fields → AI Agent
+                          ↑
+                   OpenAI Chat Model
+```
+
+Payload do Webhook:
+
+```json
+{
+  "message": "Explique esta arquitetura."
+}
+```
+
+No AI Agent, use `{{$json.message}}` como mensagem do usuário.
 
 ## Endpoints
 
-`POST /v1/chat/completions` suporta mensagens, modelo e SSE (`stream:true`). `POST /v1/responses` aceita `input` textual ou mensagens e retorna um envelope `response`; ferramentas, multimodalidade, background mode e IDs de conversa ainda não são suportados. `GET /v1/models` exige API key. Rotas `/admin/*` e `/v1/usage` exigem `ADMIN_TOKEN`.
+| Método | Rota | Autenticação | Descrição |
+|---|---|---|---|
+| `GET` | `/health` | nenhuma | Estado e provider ativo |
+| `GET` | `/auth/chatgpt/status` | nenhuma | Estado da sessão OAuth |
+| `GET` | `/auth/chatgpt/start` | navegador | Inicia OAuth |
+| `GET` | `/auth/chatgpt/callback` | OAuth | Callback e redirecionamento |
+| `POST` | `/auth/chatgpt/disconnect` | nenhuma | Remove sessão OAuth local |
+| `GET` | `/v1/models` | API key | Lista modelos |
+| `POST` | `/v1/chat/completions` | API key | Chat compatível com OpenAI |
+| `POST` | `/v1/responses` | API key | Responses API compatível |
+| `GET` | `/v1/usage` | `ADMIN_TOKEN` | Resumo de uso |
+| `POST` | `/admin/keys` | `ADMIN_TOKEN` | Cria API key |
+| `GET` | `/admin/keys` | `ADMIN_TOKEN` | Lista metadados das chaves |
+| `DELETE` | `/admin/keys/:id` | `ADMIN_TOKEN` | Revoga uma chave |
 
-Chaves são aleatórias, armazenadas somente como SHA-256, exibidas uma vez, revogáveis e auditadas. O servidor tem limite de corpo, rate limit, timeout implícito do Fastify, bind local padrão e logs sem segredos. Para produção, adicionar scrypt/pepper, quotas atômicas, CSRF no dashboard, TLS/reverse proxy, testes de carga e autenticação de sessão administrativa.
+## Testes e validação
 
-## Exemplos
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
 
-Python: `requests.post('http://localhost:3333/v1/chat/completions', headers={'Authorization':'Bearer pai_...'}, json={'model':'mock-gpt-4o-mini','messages':[{'role':'user','content':'Oi'}]})`.
+## Estrutura principal
 
-n8n usa um nó HTTP Request com o mesmo URL, header Bearer e JSON. Evolution API deve chamar um backend próprio, que valida o webhook e então chama este gateway; nunca exponha a `pai_` key no frontend. Um frontend React deve seguir a mesma regra: backend autenticado, não chave no navegador.
+```text
+src/server.ts       API Fastify e rotas
+src/oauth.ts        Fluxo OAuth e sessão criptografada
+src/providers.ts    Provider mock e provider autorizado
+src/db.ts           SQLite, API keys e auditoria
+src/security.ts     Geração e hash de API keys
+web/src/main.tsx    Dashboard React
+web/src/style.css   Estilos do dashboard
+data/               Banco e sessão local
+```
+
+## Segurança e limitações
+
+- o bind padrão é local (`127.0.0.1`);
+- o túnel torna a API acessível pela internet;
+- não compartilhe `ADMIN_TOKEN`, `OAUTH_STORAGE_KEY` ou API keys;
+- as API keys completas ficam no `localStorage` do dashboard quando salvas pelo navegador;
+- o endpoint administrativo não deve ser exposto publicamente sem controles adicionais;
+- o quick tunnel não tem garantia de disponibilidade e sua URL muda;
+- a implementação é voltada para uso pessoal e desenvolvimento, não para produção sem hardening.
