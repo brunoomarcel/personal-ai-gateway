@@ -100,6 +100,43 @@ docker compose ps
 docker compose down
 ```
 
+### Deploy pelo Portainer
+
+Como o `.env` não é versionado, use as variáveis de ambiente do próprio Portainer.
+
+1. Acesse **Stacks → Add stack**.
+2. Escolha **Git repository**.
+3. Use:
+
+```text
+Repository URL: https://github.com/brunoomarcel/personal-ai-gateway.git
+Compose path: docker-compose.yml
+```
+
+4. Em **Environment variables**, cadastre pelo menos:
+
+```text
+ADMIN_TOKEN=um-token-admin-forte
+OAUTH_STORAGE_KEY=um-segredo-longo-e-aleatorio
+PROVIDER=authorized
+DASHBOARD_URL=https://personal-ai-gateway.medainer.com.br
+HOST=0.0.0.0
+PORT=3333
+DATABASE_PATH=/app/data/gateway.db
+```
+
+5. Clique em **Deploy the stack**.
+
+O Compose cria o container `personal-ai-gateway`, publica a porta `3333` e monta `/app/data` para preservar o SQLite e a sessão OAuth.
+
+O Portainer não faz sozinho o roteamento do domínio nem o certificado HTTPS. Use um reverse proxy, como Nginx Proxy Manager, Traefik ou Caddy, apontando:
+
+```text
+personal-ai-gateway.medainer.com.br → personal-ai-gateway:3333
+```
+
+Abra somente as portas `80` e `443` no firewall da VPS. Não é necessário expor a porta `3333` para a internet depois que o reverse proxy estiver configurado.
+
 O volume `./data:/app/data` preserva o banco e a sessão OAuth entre recriações do container. O container simplifica a execução local, mas não torna a API acessível a um n8n remoto.
 
 Na configuração padrão, o túnel roda **fora** do container, na máquina host, e encaminha para a porta publicada `3333`:
