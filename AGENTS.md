@@ -28,7 +28,7 @@ docker compose logs -f
 docker compose down
 ```
 
-For Portainer/Swarm-style deployments, use `docker-compose.portainer.yml`. It references the published GHCR image and does not use `build:` or `container_name:`. The image is published by `.github/workflows/docker.yml` after pushes to `main`.
+For Portainer/Swarm-style deployments, use `docker-compose.portainer.yml`. It references the published GHCR image and declares Traefik routing labels under `deploy.labels`; it does not use `build:` or `container_name:`. The gateway must share the external Traefik overlay network, configured with `TRAEFIK_NETWORK`. The image is published by `.github/workflows/docker.yml` after pushes to `main`.
 
 The container serves both the API and the dashboard on port `3333`. The Docker volume `gateway_data` must be preserved so SQLite and OAuth credentials survive service recreation.
 

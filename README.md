@@ -120,6 +120,10 @@ ADMIN_TOKEN=um-token-admin-forte
 OAUTH_STORAGE_KEY=um-segredo-longo-e-aleatorio
 PROVIDER=authorized
 DASHBOARD_URL=https://personal-ai-gateway.medainer.com.br
+DOMAIN=personal-ai-gateway.medainer.com.br
+TRAEFIK_NETWORK=traefik-public
+TRAEFIK_ENTRYPOINT=websecure
+TRAEFIK_CERTRESOLVER=letsencrypt
 HOST=0.0.0.0
 PORT=3333
 DATABASE_PATH=/app/data/gateway.db
@@ -130,13 +134,17 @@ DATABASE_PATH=/app/data/gateway.db
 
 O Compose cria o container `personal-ai-gateway`, publica a porta `3333` e cria o volume Docker `gateway_data` para preservar o SQLite e a sessão OAuth. Não é necessário criar uma pasta manualmente na VPS.
 
-O Portainer não faz sozinho o roteamento do domínio nem o certificado HTTPS. Use um reverse proxy, como Nginx Proxy Manager, Traefik ou Caddy, apontando:
+O Stack usa as labels do Traefik para fazer o roteamento:
 
 ```text
-personal-ai-gateway.medainer.com.br → personal-ai-gateway:3333
+personal-ai-gateway.medainer.com.br → Traefik → personal-ai-gateway:3333
 ```
 
-Abra somente as portas `80` e `443` no firewall da VPS. Não é necessário expor a porta `3333` para a internet depois que o reverse proxy estiver configurado.
+Antes do deploy, a rede Docker externa usada pelo Traefik deve existir e o nome deve ser informado em `TRAEFIK_NETWORK` (o padrão no arquivo é `traefik-public`). O nome do entrypoint e do resolver também precisa corresponder à configuração do seu Traefik. O Traefik solicita e renova o certificado HTTPS. Abra somente as portas `80` e `443` no firewall da VPS.
+
+No Portainer, confirme em **Networks** o nome exato da rede do Traefik. Se ela não for `traefik-public`, altere `TRAEFIK_NETWORK` nas variáveis do Stack. O serviço do gateway e o Traefik precisam estar conectados à mesma rede overlay.
+
+Depois do deploy, a URL do dashboard será `https://personal-ai-gateway.medainer.com.br` e a Base URL para o n8n será `https://personal-ai-gateway.medainer.com.br/v1`.
 
 No modo local, o volume `./data:/app/data` preserva o banco; no Portainer, essa função é feita pelo volume `gateway_data`. O container simplifica a execução local, mas não torna a API acessível a um n8n remoto.
 
