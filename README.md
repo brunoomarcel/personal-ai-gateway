@@ -102,7 +102,7 @@ docker compose down
 
 ### Deploy pelo Portainer
 
-Como o `.env` não é versionado, use as variáveis de ambiente do próprio Portainer.
+O Portainer em modo Stack não compila `Dockerfile` via `build:`. Por isso, o workflow do GitHub Actions publica a imagem em `ghcr.io` a cada push na branch `main`. Use o arquivo `docker-compose.portainer.yml`, que referencia uma imagem pronta.
 
 1. Acesse **Stacks → Add stack**.
 2. Escolha **Git repository**.
@@ -110,7 +110,7 @@ Como o `.env` não é versionado, use as variáveis de ambiente do próprio Port
 
 ```text
 Repository URL: https://github.com/brunoomarcel/personal-ai-gateway.git
-Compose path: docker-compose.yml
+Compose path: docker-compose.portainer.yml
 ```
 
 4. Em **Environment variables**, cadastre pelo menos:
@@ -125,9 +125,14 @@ PORT=3333
 DATABASE_PATH=/app/data/gateway.db
 ```
 
-5. Clique em **Deploy the stack**.
+5. Garanta que a imagem `ghcr.io/brunoomarcel/personal-ai-gateway:latest` foi publicada pelo GitHub Actions.
+6. Clique em **Deploy the stack**.
 
-O Compose cria o container `personal-ai-gateway`, publica a porta `3333` e monta `/app/data` para preservar o SQLite e a sessão OAuth.
+O Compose cria o container `personal-ai-gateway`, publica a porta `3333` e monta `/opt/personal-ai-gateway/data` para preservar o SQLite e a sessão OAuth. Crie esse diretório na VPS antes do deploy:
+
+```bash
+sudo mkdir -p /opt/personal-ai-gateway/data
+```
 
 O Portainer não faz sozinho o roteamento do domínio nem o certificado HTTPS. Use um reverse proxy, como Nginx Proxy Manager, Traefik ou Caddy, apontando:
 

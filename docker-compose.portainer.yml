@@ -1,0 +1,20 @@
+services:
+  personal-ai-gateway:
+    image: ghcr.io/brunoomarcel/personal-ai-gateway:latest
+    environment:
+      NODE_ENV: production
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-3333}
+      DATABASE_PATH: ${DATABASE_PATH:-/app/data/gateway.db}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN must be set in Portainer}
+      PROVIDER: ${PROVIDER:-authorized}
+      OAUTH_STORAGE_KEY: ${OAUTH_STORAGE_KEY:?OAUTH_STORAGE_KEY must be set in Portainer}
+      DASHBOARD_URL: ${DASHBOARD_URL:?DASHBOARD_URL must be set in Portainer}
+    ports:
+      - "3333:3333"
+    volumes:
+      - /opt/personal-ai-gateway/data:/app/data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure

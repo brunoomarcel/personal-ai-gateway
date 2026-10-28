@@ -28,6 +28,8 @@ docker compose logs -f
 docker compose down
 ```
 
+For Portainer/Swarm-style deployments, use `docker-compose.portainer.yml`. It references the published GHCR image and does not use `build:` or `container_name:`. The image is published by `.github/workflows/docker.yml` after pushes to `main`.
+
 The container serves both the API and the dashboard on port `3333`. The `./data` bind mount must be preserved so SQLite and OAuth credentials survive container recreation.
 
 URL matrix:
