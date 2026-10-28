@@ -128,11 +128,7 @@ DATABASE_PATH=/app/data/gateway.db
 5. Garanta que a imagem `ghcr.io/brunoomarcel/personal-ai-gateway:latest` foi publicada pelo GitHub Actions.
 6. Clique em **Deploy the stack**.
 
-O Compose cria o container `personal-ai-gateway`, publica a porta `3333` e monta `/opt/personal-ai-gateway/data` para preservar o SQLite e a sessão OAuth. Crie esse diretório na VPS antes do deploy:
-
-```bash
-sudo mkdir -p /opt/personal-ai-gateway/data
-```
+O Compose cria o container `personal-ai-gateway`, publica a porta `3333` e cria o volume Docker `gateway_data` para preservar o SQLite e a sessão OAuth. Não é necessário criar uma pasta manualmente na VPS.
 
 O Portainer não faz sozinho o roteamento do domínio nem o certificado HTTPS. Use um reverse proxy, como Nginx Proxy Manager, Traefik ou Caddy, apontando:
 
@@ -142,7 +138,7 @@ personal-ai-gateway.medainer.com.br → personal-ai-gateway:3333
 
 Abra somente as portas `80` e `443` no firewall da VPS. Não é necessário expor a porta `3333` para a internet depois que o reverse proxy estiver configurado.
 
-O volume `./data:/app/data` preserva o banco e a sessão OAuth entre recriações do container. O container simplifica a execução local, mas não torna a API acessível a um n8n remoto.
+No modo local, o volume `./data:/app/data` preserva o banco; no Portainer, essa função é feita pelo volume `gateway_data`. O container simplifica a execução local, mas não torna a API acessível a um n8n remoto.
 
 Na configuração padrão, o túnel roda **fora** do container, na máquina host, e encaminha para a porta publicada `3333`:
 

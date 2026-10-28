@@ -13,8 +13,11 @@ services:
     ports:
       - "3333:3333"
     volumes:
-      - /opt/personal-ai-gateway/data:/app/data
+      - gateway_data:/app/data
     deploy:
       replicas: 1
       restart_policy:
         condition: on-failure
+
+volumes:
+  gateway_data:

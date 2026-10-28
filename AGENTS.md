@@ -30,7 +30,7 @@ docker compose down
 
 For Portainer/Swarm-style deployments, use `docker-compose.portainer.yml`. It references the published GHCR image and does not use `build:` or `container_name:`. The image is published by `.github/workflows/docker.yml` after pushes to `main`.
 
-The container serves both the API and the dashboard on port `3333`. The `./data` bind mount must be preserved so SQLite and OAuth credentials survive container recreation.
+The container serves both the API and the dashboard on port `3333`. The Docker volume `gateway_data` must be preserved so SQLite and OAuth credentials survive service recreation.
 
 URL matrix:
 
@@ -118,4 +118,4 @@ Na configuração padrão, o `cloudflared` roda no host, fora do container, e us
 - Não adicione scraping, cookies de sessão, endpoints internos ou encaminhamento indevido de tokens.
 - Antes de expor a API por túnel, considere autenticação adicional, limites de requisição e domínio estável.
 - Não remova autenticação de rotas administrativas para facilitar testes.
-- Não remova o volume `./data` do Docker Compose; ele contém o estado persistente do gateway.
+- Não remova o volume `gateway_data` do Docker Compose; ele contém o estado persistente do gateway.
